@@ -1,6 +1,6 @@
 # Alpaca Samples
 
-A collection of sample tools using the Alpaca Library.
+A collection of sample tools using ECG’s Alpaca Library.
 
 ## Requirements
 
@@ -8,4 +8,4 @@ A collection of sample tools using the Alpaca Library.
 
 ## Projects
 
-Each sub-directories in this repository is a sample tool using the Alpaca Library.
+Each subdirectory in this repository is a sample tool using the Alpaca Library.
