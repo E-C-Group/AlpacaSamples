@@ -10,17 +10,23 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
+ * A tool that reports all Users who have Hoteling Host active.
+ *
  * Created by DavidKelley on 8/18/16.
  */
 public class UsersWithHotelingHostActiveReport {
 
     public static void main(String[] args) {
         try {
-            BroadWorksServer bws = BroadWorksServer.getBroadWorksServer(P.getProperties().getPrimaryBroadWorksServer());
-            List<User> users = UserHelper.getAllUsersInSystem(bws);
+            // Open connection to BroadWorks
+            BroadWorksServer broadWorksServer = BroadWorksServer.getBroadWorksServer(P.getProperties().getPrimaryBroadWorksServer());
+
+            // Retrieve All Users in System
+            List<User> users = UserHelper.getAllUsersInSystem(broadWorksServer);
             List<String> usersWithHotelingHost = new ArrayList<>();
 
-            RequestHelper.requestPerObjectProducer(bws, users, User.class, UserHotelingHost.UserHotelingHostGetRequest.class, (user, response) -> {
+            // Iterate through Users and check if Hoteling Host is active.
+            RequestHelper.requestPerObjectProducer(broadWorksServer, users, User.class, UserHotelingHost.UserHotelingHostGetRequest.class, (user, response) -> {
                 if(!response.isErrorResponse()) {
                     if(response.getIsActive()) {
                         usersWithHotelingHost.add(user.getUserId());
@@ -28,8 +34,10 @@ public class UsersWithHotelingHostActiveReport {
                 }
             });
 
+            // Print totals
             System.out.println("Total Users With Hoteling Host Active: " + usersWithHotelingHost.size());
 
+            // Print out Users with Hoteling Host Active.
             if(usersWithHotelingHost.size() > 0) {
                 for (String userId : usersWithHotelingHost.stream().distinct().collect(Collectors.toList())) {
                     System.out.println("User ID: " + userId);
@@ -39,10 +47,9 @@ public class UsersWithHotelingHostActiveReport {
             }
 
             System.out.println("Finished!");
-
             System.exit(0);
         } catch (Exception ex) {
-            System.out.println("Error while generating report - " + ex.getMessage());
+            System.err.println("Error while generating report - " + ex.getMessage());
             System.exit(1);
         }
     }
