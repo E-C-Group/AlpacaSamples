@@ -1,11 +1,16 @@
+import co.ecg.alpaca.toolkit.exception.BroadWorksObjectException;
 import co.ecg.alpaca.toolkit.exception.BroadWorksServerException;
 import co.ecg.alpaca.toolkit.exception.HelperException;
 import co.ecg.alpaca.toolkit.exception.RequestException;
-import co.ecg.alpaca.toolkit.generated.*;
+import co.ecg.alpaca.toolkit.generated.Group;
+import co.ecg.alpaca.toolkit.generated.GroupAccessDevice;
+import co.ecg.alpaca.toolkit.generated.ServiceProvider;
 import co.ecg.alpaca.toolkit.generated.SystemAccessDevice.SystemAccessDeviceGetAllRequest;
 import co.ecg.alpaca.toolkit.generated.SystemAccessDevice.SystemAccessDeviceGetAllResponse;
+import co.ecg.alpaca.toolkit.generated.User;
+import co.ecg.alpaca.toolkit.generated.User.UserGetRegistrationListRequest;
+import co.ecg.alpaca.toolkit.generated.User.UserGetRegistrationListResponse;
 import co.ecg.alpaca.toolkit.generated.enums.AccessDeviceLevel;
-import co.ecg.alpaca.toolkit.generated.tables.SystemAccessDeviceAccessDeviceTableRow;
 import co.ecg.alpaca.toolkit.helper.user.UserHelper;
 import co.ecg.alpaca.toolkit.messaging.request.RequestHelper;
 import co.ecg.alpaca.toolkit.model.BroadWorksServer;
@@ -16,309 +21,259 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+/**
+ * A tool to Reboot all Group Access Devices within a BroadWorks System.
+ */
 public class PhoneRebootUtility {
 
-        private static final String BLACKLIST = "blacklist";
-        private static final String USER_AGENT = "useragent";
-        private static final String DRYRUN = "dryrun";
         public static Logger log = LogManager.getLogger(PhoneRebootUtility.class);
-        public static String blacklist = null;
-        public static String useragent = null;
-        public static List<String> excludeList = new ArrayList<String>();
-        private static boolean dryrun = true;
 
-        public static void main(String[] args)
-            throws BroadWorksServerException, IOException, InterruptedException, HelperException, RequestException {
+        private static final String BLACKLIST = "blackList";
+        private static final String USER_AGENT = "userAgent";
+        private static final String DRYRUN = "dryRun";
+        private static String userAgent;
+        private static Set<String> excludeList = new HashSet<>();
+        private static boolean dryRun = true;
 
-                CommandLineParser parser = new PosixParser();
+        public static void main(String[] args) throws BroadWorksServerException, IOException, InterruptedException, HelperException, RequestException {
+
+                CommandLineParser parser = new DefaultParser();
                 Options options = new Options();
 
                 options.addOption(BLACKLIST, true, "Blacklist");
                 options.addOption(USER_AGENT, true, "UserAgent REGEX");
                 options.addOption(DRYRUN, true, "Dryrun");
 
-                CommandLine cmd = null;
-
                 try {
+                        CommandLine commandLine = parser.parse(options, args);
 
-                        cmd = parser.parse(options, args);
-
-                        if (cmd.hasOption(DRYRUN)) {
-                                dryrun = Boolean.parseBoolean(cmd.getOptionValue(DRYRUN));
+                        // Parse Command Line Options
+                        if (commandLine.hasOption(DRYRUN)) {
+                                dryRun = Boolean.parseBoolean(commandLine.getOptionValue(DRYRUN));
                         } else {
                                 usage("Missing Required Parameter - " + DRYRUN);
                         }
 
-                        if (cmd.hasOption(USER_AGENT)) {
-                                useragent = cmd.getOptionValue(USER_AGENT);
+                        if (commandLine.hasOption(USER_AGENT)) {
+                                userAgent = commandLine.getOptionValue(USER_AGENT);
                         } else {
                                 usage("Missing Required Parameter - " + USER_AGENT);
                         }
 
-                        if (cmd.hasOption(BLACKLIST)) {
-                                blacklist = cmd.getOptionValue(BLACKLIST);
+                        if (commandLine.hasOption(BLACKLIST)) {
+                                String blackList = commandLine.getOptionValue(BLACKLIST);
 
-                                BufferedReader br = null;
+                                // Parse BlackList
                                 try {
-                                        br = new BufferedReader(new FileReader(blacklist));
+                                        BufferedReader bufferedReader = new BufferedReader(new FileReader(blackList));
+                                        String line;
 
-                                        for (String line; (line = br.readLine()) != null; ) {
-                                                if ((line.length() == 12) && (!excludeList.contains(line))) {
-                                                        excludeList.add(line.toLowerCase());
-                                                }
+                                        while ((line = bufferedReader.readLine()) != null) {
+                                                if (line.length() == 12) excludeList.add(line.toLowerCase());
                                         }
-
-                                } catch (FileNotFoundException e) {
-                                        // TODO Auto-generated catch block
-                                        e.printStackTrace();
-                                } catch (IOException e) {
-                                        // TODO Auto-generated catch block
-                                        e.printStackTrace();
+                                } catch (IOException ex) {
+                                        System.err.println("An error occurred while parsing the BlackList - " + ex.getMessage());
                                 }
 
                         }
-
-                        if (cmd.hasOption(USER_AGENT)) {
-
-                        }
-
-                } catch (ParseException e1) {
-                        // TODO Auto-generated catch block
-                        e1.printStackTrace();
+                } catch (ParseException ex) {
+                        System.err.println("An error occurred while parsing the Command Line - " + ex.getMessage());
                         System.exit(1);
                 }
 
-                BroadWorksServer bws = BroadWorksServer.getBroadWorksServer(P.getProperties().getPrimaryBroadWorksServer());
+                // Open the Connection to BroadWorks
+                BroadWorksServer broadWorksServer = BroadWorksServer.getBroadWorksServer(P.getProperties().getPrimaryBroadWorksServer());
 
-                System.out.println("Dryrun: " + dryrun);
+                System.out.println("Dryrun: " + dryRun);
 
-                ResetThread resetThread = new ResetThread(dryrun);
-                Thread t = new Thread(resetThread);
-                t.start();
+                // Create reset thread
+                ResetThread resetThread = new ResetThread(dryRun);
+                Thread thread = new Thread(resetThread);
+                thread.start();
 
-                System.out.print("Retrieving a list of all users in the system");
-                List<User> userList = UserHelper.getAllUsersInSystem(bws);
+                // Retrieve all Users in System.
+                System.out.print("Retrieving a list of all users in the system.");
+                List<User> userList = UserHelper.getAllUsersInSystem(broadWorksServer);
                 System.out.println(" -- complete");
 
+
+                // UserId -> User Map
                 ConcurrentHashMap<String, User> userMap = new ConcurrentHashMap<>();
 
-                System.out.print("Populating list of users");
+                // Populate User Map
+                System.out.print("Populating list of users.");
+                RequestHelper.requestPerObjectProducer(broadWorksServer,
+                        userList,
+                        User.class,
+                        User.UserGetRequest.class,
+                        (user, response) -> {
+                                // Populate User
+                                user.populate(response);
 
-                RequestHelper.requestPerObjectProducer(bws,
-                    userList,
-                    User.class,
-                    User.UserGetRequest.class,
-                    (u, response) -> {
-                            u.populate(response);
-                            userMap.put(u.getUserId(), u);
-                    });
+                                // Add User to Map
+                                userMap.put(user.getUserId(), user);
+                        });
 
                 System.out.println(" -- complete");
-
                 System.out.print("Retrieving a list of all registrations");
 
-                HashMap<User, User.UserGetRegistrationListResponse>
-                    registrationResponseMap =
-                    UserHelper.getResponsePerUserMap(bws, userList, User.UserGetRegistrationListRequest.class);
+                // User -> User Registration List Map
+                HashMap<User, UserGetRegistrationListResponse> registrationResponseMap =
+                        UserHelper.getResponsePerUserMap(broadWorksServer, userList, UserGetRegistrationListRequest.class);
+                System.out.println(" -- complete");
+
+                // User Agent Regex
+                Pattern pattern = Pattern.compile(userAgent);
+
+                System.out.print("Retrieving a list of all Group Access Devices");
+
+                // Retrieve All Devices in System.
+                SystemAccessDeviceGetAllResponse systemAccessDeviceGetAllResponse = new SystemAccessDeviceGetAllRequest(broadWorksServer).fire();
+
+                if (systemAccessDeviceGetAllResponse.isErrorResponse()) {
+                        System.err.println("Error firing request - " + systemAccessDeviceGetAllResponse.getDetailText());
+                        System.exit(1);
+                }
+
+                // Retrieve all Group Access Devices
+                List<GroupAccessDevice> groupAccessDeviceList = systemAccessDeviceGetAllResponse
+                        .getAccessDeviceTable()
+                        .stream()
+                        .filter(device -> device.getGroupId() != null && !device.getGroupId().isEmpty())
+                        .map(device -> {
+                                ServiceProvider serviceProvider = new ServiceProvider(broadWorksServer, device.getServiceProviderId());
+                                Group group = new Group(serviceProvider, device.getGroupId());
+                                GroupAccessDevice groupAccessDevice = null;
+
+                                try {
+                                        groupAccessDevice = GroupAccessDevice.getPopulatedGroupAccessDevice(group, device.getDeviceName());
+                                } catch (BroadWorksObjectException ex) {
+                                        System.err.println("Error while populating GroupAccessDevice list - " + ex.getMessage());
+                                }
+
+                                return groupAccessDevice;
+                        })
+                        .collect(Collectors.toList());
 
                 System.out.println(" -- complete");
 
-                Pattern pattern = Pattern.compile(useragent);
+                // Triple(ServiceProvider ID, Group ID, Device Name) -> GroupAccessDevice Map
+                HashMap<ImmutableTriple<String, String, String>, GroupAccessDevice> groupAccessDeviceMap = new HashMap<>();
 
-                try {
-
-                        System.out.print("Retrieving a list of all devices");
-
-                        SystemAccessDeviceGetAllRequest request = new SystemAccessDeviceGetAllRequest(bws);
-                        SystemAccessDeviceGetAllResponse response = request.fire();
-
-                        if (response.isErrorResponse()) {
-                                throw new BroadWorksServerException(response.getSummaryText());
-                        }
-
-                        System.out.println(" -- complete");
-
-                        List<SystemAccessDeviceAccessDeviceTableRow>
-                            devices =
-                            response.getAccessDeviceTable().stream().filter(d -> {
-                                    return !(d.getGroupId().isEmpty() || d.getServiceProviderId().isEmpty());
-                            }).collect(Collectors.toList());
-
-                        log.trace("Query returned - " + devices.size() + " results.");
-
-                        int count = 0;
-
-                        System.out.print("Retrieving a list of all group access devices");
-
-                        List<GroupAccessDevice> gadList = new ArrayList<>();
-
-                        for (SystemAccessDeviceAccessDeviceTableRow device : devices) {
-                                ServiceProvider
-                                    serviceProvider =
-                                    new ServiceProvider(bws, device.getServiceProviderId());
-                                Group group = new Group(serviceProvider, device.getGroupId());
-                                GroupAccessDevice gad = new GroupAccessDevice(group, device.getDeviceName());
-                                gadList.add(gad);
-                        }
-
-                        HashMap<ImmutableTriple<String, String, String>, GroupAccessDevice> gadMap = new HashMap<>();
-
-                        RequestHelper.requestPerObjectProducer(bws,
-                            gadList,
-                            GroupAccessDevice.class,
-                            GroupAccessDevice.GroupAccessDeviceGetRequest.class,
-                            (gad, gadResponse) -> {
-                                    gad.populate(gadResponse);
-                                    ImmutableTriple<String, String, String>
-                                        key =
-                                        new ImmutableTriple<>(gad.getServiceProviderId(),
-                                            gad.getGroupId(),
-                                            gad.getDeviceName());
-                                    gadMap.put(key, gad);
-                            });
-
-                        System.out.println(" -- complete");
-
-                        List<GroupAccessDevice>
-                            gadResetList =
-                            Collections.synchronizedList(new ArrayList<GroupAccessDevice>());
-
-                        registrationResponseMap.values().stream().parallel().forEach(reg -> {
-                                reg.getRegistrationTable().stream().forEach(row -> {
-                                        String userAgent = row.getUserAgent();
-
-                                        Matcher matcher = pattern.matcher(userAgent);
-
-                                        if (!matcher.find()) {
-
-                                                if (row.getDeviceLevel().equals(AccessDeviceLevel.GROUP.value())) {
-
-                                                        AccessDevice device = row.getAccessDevice(bws);
-
-                                                        User u = userMap.get(reg.getUser().getUserId());
-
-                                                        GroupAccessDevice
-                                                            gad =
-                                                            gadMap.get(new ImmutableTriple<>(u.getServiceProviderId(),
-                                                                u.getGroupId(),
-                                                                row.getDeviceName()));
-
-                                                        if (gad != null) {
-
-                                                                if (gad.getDeviceType().startsWith("Poly")) {
-                                                                        gadResetList.add(gad);
-                                                                }
-                                                        }
-                                                }
-
-                                        } else {
-                                                System.out.println(
-                                                    "SKIP - " + row.getDeviceName() + " - " + row.getUserAgent());
-                                        }
-
-                                });
+                RequestHelper.requestPerObjectProducer(broadWorksServer,
+                        groupAccessDeviceList,
+                        GroupAccessDevice.class,
+                        GroupAccessDevice.GroupAccessDeviceGetRequest.class,
+                        (groupAccessDevice, gadResponse) -> {
+                                ImmutableTriple<String, String, String> key = new ImmutableTriple<>(groupAccessDevice.getServiceProviderId(), groupAccessDevice.getGroupId(), groupAccessDevice.getDeviceName());
+                                groupAccessDeviceMap.put(key, groupAccessDevice);
                         });
 
-                        gadResetList.stream().distinct().forEach(g -> {
-                                try {
+                System.out.println(" -- complete");
 
-                                        if (!excludeList.contains(g.getMacAddress().toLowerCase())) {
-                                                resetThread.addResetRequest(new GroupAccessDevice.GroupAccessDeviceResetRequest(
-                                                    g));
-                                        } else {
-                                                System.out.println("EXCLUDE - " + g.getMacAddress());
+                List<GroupAccessDevice> deviceResetList = Collections.synchronizedList(new ArrayList<GroupAccessDevice>());
+
+                // Loop through registrations
+                registrationResponseMap.values().stream().parallel().forEach(registration -> {
+                        registration.getRegistrationTable().forEach(row -> {
+                                String userAgent = row.getUserAgent();
+
+                                Matcher matcher = pattern.matcher(userAgent);
+
+                                if (!matcher.find()) {
+                                        if (row.getDeviceLevel().equals(AccessDeviceLevel.GROUP.value())) {
+                                                User user = userMap.get(registration.getBroadWorksUser());
+                                                GroupAccessDevice device = groupAccessDeviceMap.get(new ImmutableTriple<>(user.getServiceProviderId(), user.getGroupId(), row.getDeviceName()));
+                                                if (device != null && device.getDeviceType().startsWith("Poly")) deviceResetList.add(device);
                                         }
-
-                                } catch (InterruptedException e) {
-                                        e.printStackTrace();
+                                } else {
+                                        System.out.println("SKIP - " + row.getDeviceName() + " - " + row.getUserAgent());
                                 }
-
                         });
+                });
 
-                } catch (RequestException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                }
+                // Loop through devices and reset.
+                deviceResetList.stream().distinct().forEach(device -> {
+                        try {
+                                if (!excludeList.contains(device.getMacAddress().toLowerCase())) {
+                                        resetThread.addResetRequest(new GroupAccessDevice.GroupAccessDeviceResetRequest(device));
+                                } else {
+                                        System.out.println("EXCLUDE - " + device.getMacAddress());
+                                }
+                        } catch (InterruptedException ex) {
+                                System.err.println("Error occurred while resetting device - " + ex.getMessage());
+                        }
+                });
 
                 System.out.println("Waiting for the reset queue to empty");
-
                 while (!resetThread.isEmpty()) {
                         Thread.sleep(1000);
                 }
 
                 System.out.println("The reset queue is now empty");
-
                 System.exit(0);
-
         }
 
+        /**
+         * Prints the Usage Statement for the tool.
+         *
+         * @param message The message to print out.
+         */
         public static void usage(String message) {
-                System.out.print(
-                    "Usage: PhoneRebootUtility --dryrun <boolean> --useragent <regex> [--blacklist <blacklist>]");
+                System.out.print("Usage: PhoneRebootUtility --dryRun <boolean> --userAgent <regex> [--blackList <blackList>]");
                 System.out.print("\n" + message + "\n");
                 System.exit(1);
         }
 
+        /**
+         * The ResetThread Class
+         */
         public static class ResetThread implements Runnable {
 
-                private final LinkedBlockingQueue<GroupAccessDevice.GroupAccessDeviceResetRequest>
-                    resetQueue =
-                    new LinkedBlockingQueue();
+                private final LinkedBlockingQueue<GroupAccessDevice.GroupAccessDeviceResetRequest> resetQueue = new LinkedBlockingQueue();
 
                 private boolean dryrun = true;
 
-                public ResetThread(boolean dryrun) {
+                ResetThread(boolean dryrun) {
                         this.dryrun = dryrun;
                 }
 
-                public void addResetRequest(GroupAccessDevice.GroupAccessDeviceResetRequest request)
-                    throws InterruptedException {
+                void addResetRequest(GroupAccessDevice.GroupAccessDeviceResetRequest request)
+                        throws InterruptedException {
                         resetQueue.put(request);
                 }
 
-                public boolean isEmpty() {
+                boolean isEmpty() {
                         return resetQueue.isEmpty();
                 }
 
                 @Override
                 public void run() {
-
                         while (true) {
                                 try {
                                         GroupAccessDevice.GroupAccessDeviceResetRequest request = resetQueue.take();
-
-                                        GroupAccessDevice gad = request.getGroupAccessDevice();
-
-                                        System.out.println("Reset - " + gad.getDeviceName() + " - " + gad.getVersion());
+                                        GroupAccessDevice groupAccessDevice = request.getGroupAccessDevice();
+                                        System.out.println("Reset - " + groupAccessDevice.getDeviceName() + " - " + groupAccessDevice.getVersion());
 
                                         if (!dryrun) {
                                                 request.asyncFire(response -> {
-
                                                         if (response.isErrorResponse()) {
                                                                 System.out.println(response.getDetailText());
                                                         }
-
                                                 });
-
                                                 Thread.sleep(300);
                                         }
-
-
-                                } catch (InterruptedException | RequestException e) {
-                                        e.printStackTrace();
+                                } catch (InterruptedException ex) {
+                                        ex.printStackTrace();
                                 }
                         }
 
