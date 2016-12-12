@@ -191,7 +191,7 @@ public class PhoneRebootUtility {
 
                                 if (!matcher.find()) {
                                         if (row.getDeviceLevel().equals(AccessDeviceLevel.GROUP.value())) {
-                                                User user = userMap.get(registration.getBroadWorksUser());
+                                                User user = (userMap.get(registration.getBroadWorksUser().getUserId()));
                                                 GroupAccessDevice device = groupAccessDeviceMap.get(new ImmutableTriple<>(user.getServiceProviderId(), user.getGroupId(), row.getDeviceName()));
                                                 if (device != null && device.getDeviceType().startsWith("Poly")) deviceResetList.add(device);
                                         }
