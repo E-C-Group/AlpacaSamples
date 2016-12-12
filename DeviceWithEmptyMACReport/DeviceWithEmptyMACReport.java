@@ -1,8 +1,4 @@
-import co.ecg.alpaca.toolkit.generated.SystemAccessDevice.SystemAccessDeviceGetAllRequest;
-import co.ecg.alpaca.toolkit.generated.SystemAccessDevice.SystemAccessDeviceGetAllResponse;
-import co.ecg.alpaca.toolkit.generated.tables.SystemAccessDeviceAccessDeviceTableRow;
-import co.ecg.alpaca.toolkit.model.BroadWorksServer;
-import co.ecg.utilities.properties.P;
+
 
 /**
  * Tool to retrieve all display all Access Devices in the BroadWorks system

@@ -9,7 +9,6 @@ import co.ecg.alpaca.toolkit.generated.enums.VoiceMessagingUserMailServerSelecti
 import co.ecg.alpaca.toolkit.generated.services.GroupVoiceMessaging;
 import co.ecg.alpaca.toolkit.generated.services.UserVoiceMessaging;
 import co.ecg.alpaca.toolkit.helper.user.UserHelper;
-import co.ecg.alpaca.toolkit.messaging.request.RequestBundler;
 import co.ecg.alpaca.toolkit.messaging.request.RequestHelper;
 import co.ecg.alpaca.toolkit.messaging.response.DefaultResponse;
 import co.ecg.alpaca.toolkit.model.BroadWorksServer;
@@ -21,32 +20,30 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * A tool to Migrate a Groups VoiceMail to a new Domain.
+ */
 public class VoiceMessagingMigration {
+
+    public static Logger log = LogManager.getLogger(VoiceMessagingMigration.class);
 
     private static final String DRYRUN = "dryrun";
     private static final String SOURCE = "sourceDomain";
     private static final String DESTINATION = "destinationDomain";
     private static final String MAILSERVER = "mailServer";
-    public static Logger log = LogManager.getLogger(VoiceMessagingMigration.class);
     private static boolean dryrun = true;
 
-    public static void main(String[] args)
-        throws BroadWorksServerException, IOException, InterruptedException, HelperException, BroadWorksObjectException,
-        RequestException {
+    public static void main(String[] args) throws BroadWorksServerException, IOException, InterruptedException, HelperException, BroadWorksObjectException, RequestException {
 
-        CommandLineParser parser = new PosixParser();
+        // Build Command Line and Options
+        CommandLineParser parser = new DefaultParser();
         Options options = new Options();
 
         Option dryrunOption = Option.builder("D").longOpt(DRYRUN).required(true).hasArg().valueSeparator().build();
         Option sourceOption = Option.builder("s").longOpt(SOURCE).required(true).hasArg().valueSeparator().build();
 
-        Option
-            destinationOption =
-            Option.builder("d").longOpt(DESTINATION).required(true).hasArg().valueSeparator().build();
-
-        Option
-            mailServerOption =
-            Option.builder("m").longOpt(MAILSERVER).required(true).hasArg().valueSeparator().build();
+        Option destinationOption = Option.builder("d").longOpt(DESTINATION).required(true).hasArg().valueSeparator().build();
+        Option mailServerOption = Option.builder("m").longOpt(MAILSERVER).required(true).hasArg().valueSeparator().build();
 
         options.addOption(dryrunOption);
         options.addOption(sourceOption);
@@ -56,170 +53,132 @@ public class VoiceMessagingMigration {
         CommandLine cmd = null;
 
         try {
-
             cmd = parser.parse(options, args);
-
-        } catch (ParseException e1) {
-            // TODO Auto-generated catch block
-            e1.printStackTrace();
+        } catch (ParseException ex) {
+            System.err.println("An error occurred while parsing the command line - " + ex.getMessage());
             System.exit(1);
         }
 
-        BroadWorksServer bws = BroadWorksServer.getBroadWorksServer(P.getProperties().getPrimaryBroadWorksServer());
+        BroadWorksServer broadWorksServer = BroadWorksServer.getBroadWorksServer(P.getProperties().getPrimaryBroadWorksServer());
 
         final String sourceDomain = cmd.getOptionValue(SOURCE);
         final String destinationDomain = cmd.getOptionValue(DESTINATION);
 
         System.out.println("Dryrun: " + dryrun);
 
+        // Check Arguments
         String[] remainingArguments = cmd.getArgs();
-
         if (remainingArguments.length != 2) {
             printUsage("Missing Arguments");
         }
 
-        ServiceProvider sp = ServiceProvider.getPopulatedServiceProvider(bws, remainingArguments[0]);
+        ServiceProvider serviceProvider = ServiceProvider.getPopulatedServiceProvider(broadWorksServer, remainingArguments[0]);
+        Group group = Group.getPopulatedGroup(serviceProvider, remainingArguments[1]);
 
-        Group g = Group.getPopulatedGroup(sp, remainingArguments[1]);
+        // Get All Users within Group And Populate
+        List<User> userList = group.getUsersInGroup();
+        UserHelper.populateUserList(broadWorksServer, userList);
 
-        List<User> userList = g.getUsersInGroup();
+        // Fire VoiceMail Request
+        GroupVoiceMessaging.GroupVoiceMessagingGroupGetResponse groupVoiceMessagingGetResponse = new GroupVoiceMessaging.GroupVoiceMessagingGroupGetRequest(group).fire();
 
-        UserHelper.populateUserList(bws, userList);
+        switch (groupVoiceMessagingGetResponse.getUseMailServerSetting()) {
+            case SYSTEMMAILSERVER:
+                // Group uses System Mail Server -- Nothing to do here
+                System.out.println("Group is set to use the system mail server");
+                System.exit(1);
+            case GROUPMAILSERVER:
+                // Group uses Group Mail Server
+                if (!dryrun) {
+                    // Set new Mail Server Address
+                    GroupVoiceMessaging.GroupVoiceMessagingGroupModifyRequest groupVoiceMessagingGroupModifyRequest = new GroupVoiceMessaging.GroupVoiceMessagingGroupModifyRequest(group);
+                    groupVoiceMessagingGroupModifyRequest.setMailServerNetAddress(cmd.getOptionValue(MAILSERVER));
 
-        RequestBundler bundler = bws.getRequestBundler();
+                    DefaultResponse groupVoiceMessagingGroupModifyResponse = groupVoiceMessagingGroupModifyRequest.fire();
 
-        GroupVoiceMessaging.GroupVoiceMessagingGroupGetRequest
-            groupGetRequest =
-            new GroupVoiceMessaging.GroupVoiceMessagingGroupGetRequest(g);
-        GroupVoiceMessaging.GroupVoiceMessagingGroupGetResponse groupGetResponse = groupGetRequest.fire();
-
-        switch (groupGetResponse.getUseMailServerSetting()) {
-        case SYSTEMMAILSERVER:
-            System.out.println("Group is set to use the system mail server");
-            System.exit(1);
-
-        case GROUPMAILSERVER:
-
-            if (!dryrun) {
-
-                GroupVoiceMessaging.GroupVoiceMessagingGroupModifyRequest
-                    groupVoiceMessagingGroupModifyRequest =
-                    new GroupVoiceMessaging.GroupVoiceMessagingGroupModifyRequest(g);
-
-                groupVoiceMessagingGroupModifyRequest.setMailServerNetAddress(cmd.getOptionValue(MAILSERVER));
-
-                DefaultResponse groupVoiceMessagingGroupModifyResponse = groupVoiceMessagingGroupModifyRequest.fire();
-
-                if (groupVoiceMessagingGroupModifyResponse.isErrorResponse()) {
-                    System.out.println("Unable to change the group mail server");
-                    System.exit(1);
+                    if (groupVoiceMessagingGroupModifyResponse.isErrorResponse()) {
+                        System.out.println("Unable to change the group mail server");
+                        System.exit(1);
+                    }
+                    break;
                 }
-
-                break;
-            }
         }
 
         System.out.println("Users: " + userList.size());
 
-        RequestHelper.requestPerObjectProducer(bws,
-            userList,
-            User.class,
-            UserVoiceMessaging.UserVoiceMessagingUserGetVoiceManagementRequest.class,
-            (u, response) -> {
+        // Iterate through all Users in Group and update Voicemail Settings.
+        RequestHelper.requestPerObjectProducer(broadWorksServer,
+                userList,
+                User.class,
+                UserVoiceMessaging.UserVoiceMessagingUserGetVoiceManagementRequest.class,
+                (user, response) -> {
+                    log.debug("Processing (user, response) - " + user + " " + response);
 
-                User user = (User) u;
-
-                log.debug("Processing (user, response) - " + user + " " + response);
-
-                if (response.isErrorResponse()) {
-                    if (!response.getSummaryText().contains("[Error " + 5435 + "]")) {
-                        System.out.println("Error: " + response.getSummaryText());
+                    if (response.isErrorResponse()) {
+                        if (!response.getSummaryText().contains("[Error " + 5435 + "]")) {
+                            System.err.println("Error: " + response.getSummaryText());
+                        }
+                        return;
                     }
-                    return;
-                }
-
-                if (!response.getIsActive()) {
-                    System.out.printf("%25s: Voice Messaging not active\n", user.getUserId());
-                    return;
-                }
-
-                switch (response.getProcessing()) {
-
-                case UNIFIEDVOICEANDEMAILMESSAGING:
-
-                    boolean updateSettings = false;
-
-                    try {
-
-                        UserVoiceMessaging.UserVoiceMessagingUserGetAdvancedVoiceManagementRequest
-                            getAVMRequest =
-                            new UserVoiceMessaging.UserVoiceMessagingUserGetAdvancedVoiceManagementRequest(user);
-
-                        UserVoiceMessaging.UserVoiceMessagingUserGetAdvancedVoiceManagementResponse
-                            getAVMResponse =
-                            getAVMRequest.fire();
-
-                        if (getAVMResponse.isErrorResponse()) {
-                            System.out.println(
-                                "Request failed - " + user.getUserId() + " - " + getAVMResponse.getSummaryText());
-                            return;
-                        }
-
-                        if (!getAVMResponse.getMailServerSelection()
-                            .equals(VoiceMessagingUserMailServerSelection.GROUPMAILSERVER)) {
-                            System.out.printf("%25s: User not setup for Group Mail Server\n", user.getUserId());
-                            return;
-                        }
-
-                        String originalEmail = getAVMResponse.getGroupMailServerEmailAddress();
-
-                        if (!originalEmail.contains("@" + sourceDomain)) {
-                            System.out.printf("%25s: Current email address (%s) does not match expected domain (%s)\n",
-                                user.getUserId(),
-                                originalEmail,
-                                sourceDomain);
-                            return;
-                        }
-
-                        String
-                            modifiedEmailAddress =
-                            originalEmail.replaceAll("@" + sourceDomain, "@" + destinationDomain);
-
-                        System.out.printf("%25s: In - %s  Out - %s\n",
-                            user.getUserId(),
-                            originalEmail,
-                            modifiedEmailAddress);
-
-                    } catch (RequestException e) {
-                        e.printStackTrace();
+                    if (!response.getIsActive()) {
+                        System.out.printf("%25s: Voice Messaging not active\n", user.getUserId());
+                        return;
                     }
 
-                    if (!dryrun) {
+                    // Check VoiceMail Procesing
+                    switch (response.getProcessing()) {
+                        case UNIFIEDVOICEANDEMAILMESSAGING:
+                            // Modify Email Address
+                            UserVoiceMessaging.UserVoiceMessagingUserGetAdvancedVoiceManagementResponse userAdvanceVoiceMessagingGetResponse =
+                                    new UserVoiceMessaging.UserVoiceMessagingUserGetAdvancedVoiceManagementRequest(user).fire();
 
+                            if (userAdvanceVoiceMessagingGetResponse.isErrorResponse()) {
+                                System.err.println("Request failed - " + user.getUserId() + " - " + userAdvanceVoiceMessagingGetResponse.getSummaryText());
+                                return;
+                            }
+                            if (!userAdvanceVoiceMessagingGetResponse.getMailServerSelection().equals(VoiceMessagingUserMailServerSelection.GROUPMAILSERVER)) {
+                                System.out.printf("%25s: User not setup for Group Mail Server\n", user.getUserId());
+                                return;
+                            }
+
+                            String originalEmail = userAdvanceVoiceMessagingGetResponse.getGroupMailServerEmailAddress();
+                            if (!originalEmail.contains("@" + sourceDomain)) {
+                                System.out.printf("%25s: Current email address (%s) does not match expected domain (%s)\n",
+                                        user.getUserId(),
+                                        originalEmail,
+                                        sourceDomain);
+                                return;
+                            }
+
+                            String modifiedEmailAddress = originalEmail.replaceAll("@" + sourceDomain, "@" + destinationDomain);
+
+                            // Print New Email
+                            System.out.printf("%25s: In - %s  Out - %s\n",
+                                    user.getUserId(),
+                                    originalEmail,
+                                    modifiedEmailAddress);
+                            break;
+                        case DELIVERTOEMAILADDRESSONLY:
+                            System.out.printf("%25s: Skipping voicemail processing - already delivering to %s\n",
+                                    (user != null ? user.getUserId() : null),
+                                    response.getVoiceMessageDeliveryEmailAddress());
+                            break;
                     }
-
-                    break;
-
-                case DELIVERTOEMAILADDRESSONLY:
-                    System.out.printf("%25s: Skipping voicemail processing - already delivering to %s\n",
-                        (user != null ? user.getUserId() : null),
-                        (response != null ? response.getVoiceMessageDeliveryEmailAddress() : null));
-                    break;
-                }
-            });
-
-        bws.getRequestBundler().waitForEmptyQueue();
-
+                });
+        broadWorksServer.getRequestBundler().waitForEmptyQueue();
         System.exit(0);
-
     }
 
-    public static void printUsage(String message) {
+    /**
+     * Prints the Usage Statement for the tool.
+     *
+     * @param message The message to print out.
+     */
+    private static void printUsage(String message) {
         System.out.println(
-            "Usage: VoiceMessagingMigration --dryrun=<boolean> --" + SOURCE + "=<sourceDomain> --" + DESTINATION
-                + "=<destinationDomain> --" + MAILSERVER + "=<mailServer> [serviceProviderId] [groupId]");
+                "Usage: VoiceMessagingMigration --dryrun=<boolean> --" + SOURCE + "=<sourceDomain> --" + DESTINATION
+                        + "=<destinationDomain> --" + MAILSERVER + "=<mailServer> [serviceProviderId] [groupId]");
         System.out.print("\n" + message + "\n");
         System.exit(1);
     }
-
 }

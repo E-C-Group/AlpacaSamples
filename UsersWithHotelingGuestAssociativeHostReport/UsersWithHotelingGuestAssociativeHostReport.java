@@ -26,6 +26,7 @@ public class UsersWithHotelingGuestAssociativeHostReport {
 
     public static void main(String[] args) {
         try {
+            // Open connection to BroadWorks
             BroadWorksServer broadWorksServer = BroadWorksServer.getBroadWorksServer(P.getProperties().getPrimaryBroadWorksServer());
 
             // Get All Users in the System
