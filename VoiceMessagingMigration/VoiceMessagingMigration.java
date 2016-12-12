@@ -63,6 +63,7 @@ public class VoiceMessagingMigration {
 
         final String sourceDomain = cmd.getOptionValue(SOURCE);
         final String destinationDomain = cmd.getOptionValue(DESTINATION);
+        dryrun = Boolean.valueOf(cmd.getOptionValue(DRYRUN));
 
         System.out.println("Dryrun: " + dryrun);
 
