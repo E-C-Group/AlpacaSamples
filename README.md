@@ -4,7 +4,7 @@ A collection of sample tools using ECG’s Alpaca Library.
 
 ## Requirements
 
-* [Alpaca Library](http://www.e-c-group.com/products/alpaca-library/) 4.1
+* [Alpaca Library](http://www.e-c-group.com/products/alpaca-library/) 5.0.1
 
 (For other versions of Alpaca Library, check for a branch with that version number. The master branch will always be the latest version of Alpaca Library.)
 
