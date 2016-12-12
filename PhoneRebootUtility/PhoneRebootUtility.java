@@ -3,223 +3,151 @@ import co.ecg.alpaca.toolkit.exception.BroadWorksServerException;
 import co.ecg.alpaca.toolkit.exception.HelperException;
 import co.ecg.alpaca.toolkit.exception.RequestException;
 import co.ecg.alpaca.toolkit.generated.Group;
-import co.ecg.alpaca.toolkit.generated.GroupAccessDevice;
 import co.ecg.alpaca.toolkit.generated.ServiceProvider;
-import co.ecg.alpaca.toolkit.generated.SystemAccessDevice.SystemAccessDeviceGetAllRequest;
-import co.ecg.alpaca.toolkit.generated.SystemAccessDevice.SystemAccessDeviceGetAllResponse;
 import co.ecg.alpaca.toolkit.generated.User;
-import co.ecg.alpaca.toolkit.generated.User.UserGetRegistrationListRequest;
-import co.ecg.alpaca.toolkit.generated.User.UserGetRegistrationListResponse;
-import co.ecg.alpaca.toolkit.generated.enums.AccessDeviceLevel;
+import co.ecg.alpaca.toolkit.generated.enums.VoiceMessagingMessageProcessing;
+import co.ecg.alpaca.toolkit.generated.services.UserVoiceMessaging;
 import co.ecg.alpaca.toolkit.helper.user.UserHelper;
+import co.ecg.alpaca.toolkit.messaging.request.RequestBundler;
 import co.ecg.alpaca.toolkit.messaging.request.RequestHelper;
 import co.ecg.alpaca.toolkit.model.BroadWorksServer;
 import co.ecg.utilities.properties.P;
 import org.apache.commons.cli.*;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * A tool to Reboot all Group Access Devices within a BroadWorks System.
+ * Tool to update Voice Messaging Settings fro all User's within a Group.
  */
-public class PhoneRebootUtility {
+public class UpdateVoiceMessaging {
 
-        public static Logger log = LogManager.getLogger(PhoneRebootUtility.class);
+        public static Logger log = LogManager.getLogger(UpdateVoiceMessaging.class);
 
-        private static final String BLACKLIST = "blackList";
-        private static final String USER_AGENT = "userAgent";
-        private static final String DRYRUN = "dryRun";
-        private static String userAgent;
-        private static Set<String> excludeList = new HashSet<>();
-        private static boolean dryRun = true;
+        private static final String DRYRUN = "dryrun";
+        private static boolean dryrun = true;
 
-        public static void main(String[] args) throws BroadWorksServerException, IOException, InterruptedException, HelperException, RequestException {
+        public static void main(String[] args) throws BroadWorksServerException, IOException, InterruptedException, HelperException, BroadWorksObjectException, RequestException {
 
                 CommandLineParser parser = new DefaultParser();
                 Options options = new Options();
 
-                options.addOption(BLACKLIST, true, "Blacklist");
-                options.addOption(USER_AGENT, true, "UserAgent REGEX");
                 options.addOption(DRYRUN, true, "Dryrun");
 
-                try {
-                        CommandLine commandLine = parser.parse(options, args);
+                CommandLine commandLine = null;
 
-                        // Parse Command Line Options
+                // Parse Command Line Options
+                try {
+                        commandLine = parser.parse(options, args);
+
                         if (commandLine.hasOption(DRYRUN)) {
-                                dryRun = Boolean.parseBoolean(commandLine.getOptionValue(DRYRUN));
+                                dryrun = Boolean.parseBoolean(commandLine.getOptionValue(DRYRUN));
                         } else {
                                 usage("Missing Required Parameter - " + DRYRUN);
                         }
 
-                        if (commandLine.hasOption(USER_AGENT)) {
-                                userAgent = commandLine.getOptionValue(USER_AGENT);
-                        } else {
-                                usage("Missing Required Parameter - " + USER_AGENT);
-                        }
-
-                        if (commandLine.hasOption(BLACKLIST)) {
-                                String blackList = commandLine.getOptionValue(BLACKLIST);
-
-                                // Parse BlackList
-                                try {
-                                        BufferedReader bufferedReader = new BufferedReader(new FileReader(blackList));
-                                        String line;
-
-                                        while ((line = bufferedReader.readLine()) != null) {
-                                                if (line.length() == 12) excludeList.add(line.toLowerCase());
-                                        }
-                                } catch (IOException ex) {
-                                        System.err.println("An error occurred while parsing the BlackList - " + ex.getMessage());
-                                }
-
-                        }
                 } catch (ParseException ex) {
-                        System.err.println("An error occurred while parsing the Command Line - " + ex.getMessage());
+                        System.err.println("Error while parsing command line - " + ex.getMessage());
                         System.exit(1);
                 }
 
-                // Open the Connection to BroadWorks
                 BroadWorksServer broadWorksServer = BroadWorksServer.getBroadWorksServer(P.getProperties().getPrimaryBroadWorksServer());
 
-                System.out.println("Dryrun: " + dryRun);
+                System.out.println("Dryrun: " + dryrun);
 
-                // Create reset thread
-                ResetThread resetThread = new ResetThread(dryRun);
-                Thread thread = new Thread(resetThread);
-                thread.start();
+                String[] remainingArguments = commandLine.getArgs();
 
-                // Retrieve all Users in System.
-                System.out.print("Retrieving a list of all users in the system.");
-                List<User> userList = UserHelper.getAllUsersInSystem(broadWorksServer);
-                System.out.println(" -- complete");
+                List<User> userList = new ArrayList<>();
 
+                // Check Arguments
+                switch (remainingArguments.length) {
+                        case 0:
+                                userList = UserHelper.getAllUsersInSystem(broadWorksServer);
+                                break;
+                        case 2:
+                                ServiceProvider serviceProvider = ServiceProvider.getPopulatedServiceProvider(broadWorksServer, remainingArguments[0]);
+                                Group group = Group.getPopulatedGroup(serviceProvider, remainingArguments[1]);
+                                userList = group.getUsersInGroup();
+                                break;
+                        default:
+                                System.err.println("Provide either 0 or 2 (<serviceProviderId> <groupId>) arguments");
+                                System.exit(1);
+                }
 
-                // UserId -> User Map
-                ConcurrentHashMap<String, User> userMap = new ConcurrentHashMap<>();
+                // Populate all Users in List.
+                UserHelper.populateUserList(broadWorksServer, userList);
+                RequestBundler bundler = broadWorksServer.getRequestBundler();
 
-                // Populate User Map
-                System.out.print("Populating list of users.");
+                // Iterate through Users and set VoiceMail Settings.
                 RequestHelper.requestPerObjectProducer(broadWorksServer,
                         userList,
                         User.class,
-                        User.UserGetRequest.class,
+                        UserVoiceMessaging.UserVoiceMessagingUserGetVoiceManagementRequest.class,
                         (user, response) -> {
-                                // Populate User
-                                user.populate(response);
+                                log.debug("Processing (user, response) - " + user.getUserId() + " " + response);
 
-                                // Add User to Map
-                                userMap.put(user.getUserId(), user);
-                        });
-
-                System.out.println(" -- complete");
-                System.out.print("Retrieving a list of all registrations");
-
-                // User -> User Registration List Map
-                HashMap<User, UserGetRegistrationListResponse> registrationResponseMap =
-                        UserHelper.getResponsePerUserMap(broadWorksServer, userList, UserGetRegistrationListRequest.class);
-                System.out.println(" -- complete");
-
-                // User Agent Regex
-                Pattern pattern = Pattern.compile(userAgent);
-
-                System.out.print("Retrieving a list of all Group Access Devices");
-
-                // Retrieve All Devices in System.
-                SystemAccessDeviceGetAllResponse systemAccessDeviceGetAllResponse = new SystemAccessDeviceGetAllRequest(broadWorksServer).fire();
-
-                if (systemAccessDeviceGetAllResponse.isErrorResponse()) {
-                        System.err.println("Error firing request - " + systemAccessDeviceGetAllResponse.getDetailText());
-                        System.exit(1);
-                }
-
-                // Retrieve all Group Access Devices
-                List<GroupAccessDevice> groupAccessDeviceList = systemAccessDeviceGetAllResponse
-                        .getAccessDeviceTable()
-                        .stream()
-                        .filter(device -> device.getGroupId() != null && !device.getGroupId().isEmpty())
-                        .map(device -> {
-                                ServiceProvider serviceProvider = new ServiceProvider(broadWorksServer, device.getServiceProviderId());
-                                Group group = new Group(serviceProvider, device.getGroupId());
-                                GroupAccessDevice groupAccessDevice = null;
-
-                                try {
-                                        groupAccessDevice = GroupAccessDevice.getPopulatedGroupAccessDevice(group, device.getDeviceName());
-                                } catch (BroadWorksObjectException ex) {
-                                        System.err.println("Error while populating GroupAccessDevice list - " + ex.getMessage());
+                                if (response.isErrorResponse() && !response.getSummaryText().contains("[Error " + 5435 + "]")) {
+                                        System.err.println("Error: " + response.getSummaryText());
+                                        return;
                                 }
 
-                                return groupAccessDevice;
-                        })
-                        .collect(Collectors.toList());
+                                if (!response.getIsActive()) System.out.printf("%25s: Voice not active\n", user.getUserId());
 
-                System.out.println(" -- complete");
+                                switch (response.getProcessing()) {
+                                        case UNIFIEDVOICEANDEMAILMESSAGING:
+                                                boolean updateSettings = false;
 
-                // Triple(ServiceProvider ID, Group ID, Device Name) -> GroupAccessDevice Map
-                HashMap<ImmutableTriple<String, String, String>, GroupAccessDevice> groupAccessDeviceMap = new HashMap<>();
+                                                UserVoiceMessaging.UserVoiceMessagingUserModifyVoiceManagementRequest modifyRequest = new UserVoiceMessaging.UserVoiceMessagingUserModifyVoiceManagementRequest(user);
 
-                RequestHelper.requestPerObjectProducer(broadWorksServer,
-                        groupAccessDeviceList,
-                        GroupAccessDevice.class,
-                        GroupAccessDevice.GroupAccessDeviceGetRequest.class,
-                        (groupAccessDevice, gadResponse) -> {
-                                ImmutableTriple<String, String, String> key = new ImmutableTriple<>(groupAccessDevice.getServiceProviderId(), groupAccessDevice.getGroupId(), groupAccessDevice.getDeviceName());
-                                groupAccessDeviceMap.put(key, groupAccessDevice);
-                        });
+                                                if (response.getVoiceMessageDeliveryEmailAddress().isEmpty()) {
+                                                        if (!response.getVoiceMessageCarbonCopyEmailAddress().isEmpty()) {
+                                                                updateSettings = true;
 
-                System.out.println(" -- complete");
+                                                                modifyRequest.setVoiceMessageDeliveryEmailAddress(response.getVoiceMessageCarbonCopyEmailAddress());
+                                                                modifyRequest.setVoiceMessageCarbonCopyEmailAddress(null);
+                                                                modifyRequest.setSendCarbonCopyVoiceMessage(false);
 
-                List<GroupAccessDevice> deviceResetList = Collections.synchronizedList(new ArrayList<GroupAccessDevice>());
+                                                                System.out.printf("%25s: Update voicemail processing %s using CC address - %s\n",
+                                                                        user.getUserId(),
+                                                                        (dryrun ? "(dryrun)" : ""),
+                                                                        response.getVoiceMessageCarbonCopyEmailAddress());
+                                                        } else {
+                                                                System.out.printf("%25s: Failed to update processing no email address - %s\n",
+                                                                        user.getUserId(),
+                                                                        (dryrun ? "(dryrun)" : ""));
+                                                        }
+                                                } else {
+                                                        updateSettings = true;
 
-                // Loop through registrations
-                registrationResponseMap.values().stream().parallel().forEach(registration -> {
-                        registration.getRegistrationTable().forEach(row -> {
-                                String userAgent = row.getUserAgent();
+                                                        System.out.printf("%25s: Update voicemail processing %s using existing address - %s\n",
+                                                                user.getUserId(),
+                                                                (dryrun ? "(dryrun)" : ""),
+                                                                response.getVoiceMessageDeliveryEmailAddress());
 
-                                Matcher matcher = pattern.matcher(userAgent);
+                                                        modifyRequest.setVoiceMessageCarbonCopyEmailAddress(null);
+                                                        modifyRequest.setSendCarbonCopyVoiceMessage(false);
+                                                }
 
-                                if (!matcher.find()) {
-                                        if (row.getDeviceLevel().equals(AccessDeviceLevel.GROUP.value())) {
-                                                User user = (userMap.get(registration.getBroadWorksUser().getUserId()));
-                                                GroupAccessDevice device = groupAccessDeviceMap.get(new ImmutableTriple<>(user.getServiceProviderId(), user.getGroupId(), row.getDeviceName()));
-                                                if (device != null && device.getDeviceType().startsWith("Poly")) deviceResetList.add(device);
-                                        }
-                                } else {
-                                        System.out.println("SKIP - " + row.getDeviceName() + " - " + row.getUserAgent());
+                                                if (!dryrun && updateSettings) {
+                                                        modifyRequest.setProcessing(VoiceMessagingMessageProcessing.DELIVERTOEMAILADDRESSONLY);
+
+                                                        bundler.put(modifyRequest, modifyResponse -> {
+                                                                if (modifyResponse.isErrorResponse()) System.out.println("Error: " + modifyResponse.getSummaryText());
+                                                        });
+                                                }
+                                                break;
+                                        case DELIVERTOEMAILADDRESSONLY:
+                                                System.out.printf("%25s: Skipping voicemail processing - already delivering to %s\n",
+                                                        user.getUserId(),
+                                                        response.getVoiceMessageDeliveryEmailAddress());
+                                                break;
                                 }
                         });
-                });
 
-                // Loop through devices and reset.
-                deviceResetList.stream().distinct().forEach(device -> {
-                        try {
-                                if (!excludeList.contains(device.getMacAddress().toLowerCase())) {
-                                        resetThread.addResetRequest(new GroupAccessDevice.GroupAccessDeviceResetRequest(device));
-                                } else {
-                                        System.out.println("EXCLUDE - " + device.getMacAddress());
-                                }
-                        } catch (InterruptedException ex) {
-                                System.err.println("Error occurred while resetting device - " + ex.getMessage());
-                        }
-                });
-
-                System.out.println("Waiting for the reset queue to empty");
-                while (!resetThread.isEmpty()) {
-                        Thread.sleep(1000);
-                }
-
-                System.out.println("The reset queue is now empty");
+                broadWorksServer.getRequestBundler().waitForEmptyQueue();
                 System.exit(0);
         }
 
@@ -229,55 +157,8 @@ public class PhoneRebootUtility {
          * @param message The message to print out.
          */
         public static void usage(String message) {
-                System.out.print("Usage: PhoneRebootUtility --dryRun <boolean> --userAgent <regex> [--blackList <blackList>]");
+                System.out.println("Usage: PhoneRebootUtility --dryrun <boolean> [serviceProviderId] [groupId]");
                 System.out.print("\n" + message + "\n");
                 System.exit(1);
         }
-
-        /**
-         * The ResetThread Class
-         */
-        public static class ResetThread implements Runnable {
-
-                private final LinkedBlockingQueue<GroupAccessDevice.GroupAccessDeviceResetRequest> resetQueue = new LinkedBlockingQueue();
-
-                private boolean dryrun = true;
-
-                ResetThread(boolean dryrun) {
-                        this.dryrun = dryrun;
-                }
-
-                void addResetRequest(GroupAccessDevice.GroupAccessDeviceResetRequest request)
-                        throws InterruptedException {
-                        resetQueue.put(request);
-                }
-
-                boolean isEmpty() {
-                        return resetQueue.isEmpty();
-                }
-
-                @Override
-                public void run() {
-                        while (true) {
-                                try {
-                                        GroupAccessDevice.GroupAccessDeviceResetRequest request = resetQueue.take();
-                                        GroupAccessDevice groupAccessDevice = request.getGroupAccessDevice();
-                                        System.out.println("Reset - " + groupAccessDevice.getDeviceName() + " - " + groupAccessDevice.getVersion());
-
-                                        if (!dryrun) {
-                                                request.asyncFire(response -> {
-                                                        if (response.isErrorResponse()) {
-                                                                System.out.println(response.getDetailText());
-                                                        }
-                                                });
-                                                Thread.sleep(300);
-                                        }
-                                } catch (InterruptedException ex) {
-                                        ex.printStackTrace();
-                                }
-                        }
-
-                }
-        }
-
 }
