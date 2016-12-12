@@ -35,7 +35,8 @@ public class UpdateVoiceMessaging {
         CommandLineParser parser = new DefaultParser();
         Options options = new Options();
 
-        options.addOption(DRYRUN, true, "Dryrun");
+        Option dryrunOption = Option.builder("D").longOpt(DRYRUN).required(true).hasArg().valueSeparator().build();
+        options.addOption(dryrunOption);
 
         CommandLine commandLine = null;
 
@@ -157,7 +158,7 @@ public class UpdateVoiceMessaging {
      * @param message The message to print out.
      */
     public static void usage(String message) {
-        System.out.println("Usage: PhoneRebootUtility --dryrun <boolean> [serviceProviderId] [groupId]");
+        System.out.println("Usage: UpdateVoieMessaging --dryrun <boolean> [serviceProviderId] [groupId]");
         System.out.print("\n" + message + "\n");
         System.exit(1);
     }
