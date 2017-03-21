@@ -1,0 +1,32 @@
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'application'
+
+// This is set to a local Alpaca installation
+def alpacaLocation = "/opt/alpaca-core-21sp1-5.2.0-SNAPSHOT"
+
+// This points to the entry point for the application
+mainClassName = "co.ecg.Example"
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+version = '1.0'
+applicationDefaultJvmArgs = ['-Dlog.directory=$APP_HOME']
+
+startScripts {
+    classpath += files('src/dist/%CONFIG%')
+    doLast {
+        def windowsScriptFile = file getWindowsScript()
+        def unixScriptFile    = file getUnixScript()
+        windowsScriptFile.text = windowsScriptFile.text.replace('%APP_HOME%\\lib\\%CONFIG%', '%APP_HOME%\\config')
+        unixScriptFile.text  = unixScriptFile.text.replace('$APP_HOME/lib/%CONFIG%', '$APP_HOME/config')
+
+        windowsScriptFile.text = windowsScriptFile.text.replace('\\$APP_HOME', '%APP_HOME%')
+        unixScriptFile.text = unixScriptFile.text.replace('\\$APP_HOME', '$APP_HOME')
+    }
+}
+
+dependencies {
+    compile fileTree(dir: alpacaLocation, include: ['*.jar'])
+    compile fileTree(dir: "${alpacaLocation}/lib", include: ['*.jar'])
+}

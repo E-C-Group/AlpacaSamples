@@ -3,12 +3,13 @@ import co.ecg.alpaca.toolkit.generated.SystemAccessDevice.SystemAccessDeviceGetA
 import co.ecg.alpaca.toolkit.generated.tables.SystemAccessDeviceAccessDeviceTableRow;
 import co.ecg.alpaca.toolkit.model.BroadWorksServer;
 import co.ecg.utilities.properties.P;
+import co.ecg.alpaca.toolkit.generated.SystemAccessDevice;
 
 /**
  * Tool to retrieve all display all Access Devices in the BroadWorks system
  * without a specific MAC address.
  *
- * @author Matthew Keathley - mkeathley@e-c-group.com
+ * @author Matthew Keathley
  */
 public class DeviceWithEmptyMACReport {
 
@@ -18,10 +19,10 @@ public class DeviceWithEmptyMACReport {
             BroadWorksServer bws = BroadWorksServer.getBroadWorksServer(P.getProperties().getPrimaryBroadWorksServer());
 
             // Create Request
-            SystemAccessDeviceGetAllRequest accessDeviceGetAllRequest = new SystemAccessDeviceGetAllRequest(bws);
+            SystemAccessDevice.SystemAccessDeviceGetAllRequest accessDeviceGetAllRequest = new SystemAccessDevice.SystemAccessDeviceGetAllRequest(bws);
 
             // Perform a synchronous fire to receive Response
-            SystemAccessDeviceGetAllResponse accessDeviceGetAllResponse = accessDeviceGetAllRequest.fire();
+            SystemAccessDevice.SystemAccessDeviceGetAllResponse accessDeviceGetAllResponse = accessDeviceGetAllRequest.fire();
 
             // Check if the Response is an Error
             if (accessDeviceGetAllResponse.isErrorResponse()) {

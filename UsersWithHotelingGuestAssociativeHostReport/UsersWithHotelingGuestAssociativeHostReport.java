@@ -1,26 +1,18 @@
-import co.ecg.alpaca.toolkit.exception.BroadWorksServerException;
-import co.ecg.alpaca.toolkit.exception.HelperException;
-import co.ecg.alpaca.toolkit.exception.RequestException;
 import co.ecg.alpaca.toolkit.generated.User;
-import co.ecg.alpaca.toolkit.generated.enums.UserService;
 import co.ecg.alpaca.toolkit.generated.services.UserHotelingGuest;
-import co.ecg.alpaca.toolkit.helper.information.UserInformationBuilder;
 import co.ecg.alpaca.toolkit.helper.user.UserHelper;
 import co.ecg.alpaca.toolkit.messaging.request.RequestHelper;
 import co.ecg.alpaca.toolkit.model.BroadWorksServer;
-import co.ecg.alpaca.toolkit.serializable.user.UserInformation;
 import co.ecg.utilities.properties.P;
 
-
-import java.io.IOException;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
  * Class to Print Out a report of all Users with a Hoteling Guest Associative Host.
  *
- * Created by DavidKelley on 8/16/16.
+ * @author DavidKelley on 8/16/16.
  */
 public class UsersWithHotelingGuestAssociativeHostReport {
 

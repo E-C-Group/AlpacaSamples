@@ -1,0 +1,100 @@
+{
+  "broadWorksServerConfigList": [
+    {
+      "nickname": "production",
+      "hostName": "ews1.acme.com",
+      "userName": "admin",
+      "password": "admin",
+      "ttConfig": {
+        "hostName": "as1.acme.com",
+        "DSN": "AppServer",
+        "port": 11203,
+        "userId": "bwas",
+        "password": "bwas"
+      },
+      "autoConnect": true
+    }
+  ],
+  "cacheConfig": {
+    "busyLampFieldTimeoutHours": 24
+  },
+  "coreConfig": {
+    "broadWorksConnectionTimeoutMillis": 5000,
+    "encoding": "ISO-8859-1",
+    "requestTimeoutMillis": 30000,
+    "maxRequestsPerSecond": 40,
+    "validateRequestsOnFire": true,
+    "bundlerAutoFireTimeoutMillis": 1000,
+    "serviceAsyncLoadTimeout": 120000,
+    "sslPermissive": true,
+    "numberOfSocketsPerBroadWorksServer": 1
+  },
+  "emailConfig": {
+    "useAuthentication": true,
+    "smtpHostName": "smtp.gmail.com",
+    "smtpUserName": "",
+    "smtpPassword": "",
+    "smtpPort": 587,
+    "useTLS": true,
+    "fromAddress": "",
+    "toAddressList": [
+      {
+        "priority": 1,
+        "address": "",
+        "type": "UserProfile"
+      },
+      {
+        "priority": 2,
+        "address": "",
+        "type": "VoicemailCarbonCopy"
+      },
+      {
+        "priority": 0,
+        "address": "",
+        "type": "Static"
+      }
+    ],
+    "subjectPrepend": "[AlpacaEvent]",
+    "usePlainText": false,
+    "userEventTemplate": "<html><body>%ALPACAEVENTMESSAGE%<br>---<br>Alpaca Version: %ALPACAVERSION%<br></body></html>"
+  },
+  "fileManagerConfig": {
+    "rootLocation": "/tmp/alpacastore"
+  },
+  "migrationConfig": {
+    "announcementRepositoryUsername": "BoNjOuRlEsAmIs049",
+    "announcementRepositoryPassword": "viveLEROILouis14",
+    "authenticationPasswordChangeableRegex": ".*(Polycom|Linksys|Cisco).*",
+    "authenticationUsernameChangeableRegex": ".*(Polycom|Linksys|Cisco).*",
+    "deviceRebootDelayMillis": 5000,
+    "deviceFileMigrationRuleList": [
+      {
+        "deviceTypeRegex": {
+          "pattern": "Polycom.*"
+        },
+        "fileRegexes": [
+          {
+            "pattern": "%BWMACADDRESS%-directory.xml"
+          },
+          {
+            "pattern": "%BWMACADDRESS%-calls.xml"
+          }
+        ]
+      }
+    ]
+  },
+  "resetWatcherConfig": {
+    "deviceTypeFilterRegex": ".*Polycom.*",
+    "timeoutMillis": 300000,
+    "delayMillis": 10000
+  },
+  "shellConfig": {
+    "isBellEnabled": true,
+    "isKeepAlive": true,
+    "daemonPort": 4550,
+    "userModifyPasscodeEmailByDefault": true,
+    "userModifyPasscodeEmailTemplate": "<html><link rel=\"stylesheet\" href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css\"><body><div class=\"container-fluid\">This is an automated event notification for <strong>User Voice Portal</strong> passcode modification.<br><br><dl class=\"dl-horizontal\"><dt>Priority</dt><dd>%ALPACAPRIORITY%</dd><dt>User ID</dt><dd>%BWID%</dd><dt>Name</dt><dd>%BWFIRSTNAME% %BWLASTNAME%</dd><dt>DN</dt><dd>%BWDN%</dd><dt>New Passcode</dt><dd>%ALPACAEVENTMESSAGE%</dd></dl><br><img src = \"http://www.e-c-group.com/assets/images/logo.png\"><br><h5>Alpaca <small>Version %ALPACAVERSION%</small></h5></div></body></html>",
+    "userModifyPasswordEmailByDefault": true,
+    "userModifyPasswordEmailTemplate": "<html><link rel=\"stylesheet\" href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css\"><body><div class=\"container-fluid\">This is an automated event notification for <strong>User Web Access</strong> password modification.<br><br><dl class=\"dl-horizontal\"><dt>Priority</dt><dd>%ALPACAPRIORITY%</dd><dt>User ID</dt><dd>%BWID%</dd><dt>Name</dt><dd>%BWFIRSTNAME% %BWLASTNAME%</dd><dt>DN</dt><dd>%BWDN%</dd><dt>New Password</dt><dd>%ALPACAEVENTMESSAGE%</dd></dl><br><img src = \"http://www.e-c-group.com/assets/images/logo.png\"><br><h5>Alpaca <small>Version %ALPACAVERSION%</small></h5></div></body></html>"
+  }
+}

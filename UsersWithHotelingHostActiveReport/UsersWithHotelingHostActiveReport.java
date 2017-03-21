@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 /**
  * A tool that reports all Users who have Hoteling Host active.
  *
- * Created by DavidKelley on 8/18/16.
+ * @author DavidKelley on 8/18/16.
  */
 public class UsersWithHotelingHostActiveReport {
 
