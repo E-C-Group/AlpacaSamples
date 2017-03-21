@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Tool to update Voice Messaging Settings fro all User's within a Group.
+ * Tool to update Voice Messaging Settings for all User's within a Group.
  */
 public class UpdateVoiceMessaging {
 
