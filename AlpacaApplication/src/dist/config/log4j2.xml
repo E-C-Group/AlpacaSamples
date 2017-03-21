@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+    <CustomLevels>
+        <CustomLevel name="CLIENT" intLevel="350"/>
+    </CustomLevels>
+
+    <Appenders>
+        <RollingFile name="RollingFile" fileName="${sys:log.directory}/logs/bulk_loader.log"
+                     filePattern="${sys:log.directory}/logs/$${date:yyyy-MM}/bulk_loader-%d{MM-dd-yyyy}-%i.log.gz">
+            <PatternLayout>
+                <Pattern>%d %-5p %c - %m%n</Pattern>
+            </PatternLayout>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="250 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="20"/>
+        </RollingFile>
+
+        <Async name="AsyncRollingFile">
+            <AppenderRef ref="RollingFile"/>
+        </Async>
+
+        <Console name="STDOUT" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d %-5p %c - %m%n"/>
+            <ThresholdFilter level="FATAL" onMatch="ACCEPT" onMismatch="DENY"/>
+        </Console>
+    </Appenders>
+
+    <Loggers>
+        <Logger name="co.ecg.alpaca" level="DEBUG"/>
+        <Logger name="co.ecg.utilities" level="ALL"/>
+        <Logger name="org.apache.jcs" level="ERROR"/>
+        <Logger name="org.apache.commons" level="INFO"/>
+        <Logger name="org.apache.http" level="ERROR"/>
+        <Logger name="org.hibernate" level="ERROR"/>
+
+        <Root level="ALL">
+            <AppenderRef ref="AsyncRollingFile"/>
+            <AppenderRef ref="STDOUT"/>
+        </Root>
+    </Loggers>
+</Configuration>
+
