@@ -38,9 +38,9 @@ public class UCOneProvisioningTool {
     private static GroupInformation groupInformation;
     private static PrintColorWriter out;
 
-    private static final String[] SERVICEPACKS = {"HPBX-2.1", "UCOne_Complete"};
+    // Service Packs Go Here
+    private static final String[] SERVICEPACKS = {"ServicePack1", "ServicePack2"};
     private static final HashMap<String, String> deviceTypeToNameMap = new HashMap<>();
-    private static final String DOMAIN = "@voip.hawaiiantel.net";
 
     public static void main(String[] args) {
         try {
@@ -226,7 +226,7 @@ public class UCOneProvisioningTool {
     private static void setupSCA(String deviceName) {
         try {
             GroupAccessDevice groupAccessDevice = GroupAccessDevice.getPopulatedGroupAccessDevice(user.getGroup(), deviceName);
-            AccessDeviceEndpointAdd accessDeviceEndpointAdd = new AccessDeviceEndpointAdd(groupAccessDevice, groupAccessDevice.getDeviceName() + DOMAIN);
+            AccessDeviceEndpointAdd accessDeviceEndpointAdd = new AccessDeviceEndpointAdd(groupAccessDevice, groupAccessDevice.getDeviceName() + "@" + user.getGroup().getDefaultDomain());
 
             DefaultResponse endpointAdd = new UserSharedCallAppearance.UserSharedCallAppearanceAddEndpointRequest(user, accessDeviceEndpointAdd, true, true, true).fire();
             if (endpointAdd.isErrorResponse()) {
