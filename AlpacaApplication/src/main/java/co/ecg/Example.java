@@ -1,44 +1,10 @@
-package co.ecg.loader;
+package co.ecg;
 
-import co.ecg.alpaca.toolkit.exception.BroadWorksObjectException;
-import co.ecg.alpaca.toolkit.exception.RequestException;
-import co.ecg.alpaca.toolkit.generated.Group;
-import co.ecg.alpaca.toolkit.generated.Group.GroupAddRequest;
-import co.ecg.alpaca.toolkit.generated.Group.GroupDeleteRequest;
-import co.ecg.alpaca.toolkit.generated.Group.GroupServiceModifyAuthorizationListRequest;
-import co.ecg.alpaca.toolkit.generated.GroupAccessDevice;
-import co.ecg.alpaca.toolkit.generated.GroupAccessDevice.GroupAccessDeviceAddRequest;
-import co.ecg.alpaca.toolkit.generated.ServiceProvider;
-import co.ecg.alpaca.toolkit.generated.ServiceProvider.ServiceProviderDeleteRequest;
-import co.ecg.alpaca.toolkit.generated.ServiceProvider.ServiceProviderServiceModifyAuthorizationListRequest;
-import co.ecg.alpaca.toolkit.generated.User;
-import co.ecg.alpaca.toolkit.generated.User.UserAddRequest;
-import co.ecg.alpaca.toolkit.generated.User.UserDeleteRequest;
-import co.ecg.alpaca.toolkit.generated.User.UserModifyRequest;
-import co.ecg.alpaca.toolkit.generated.User.UserServiceAssignListRequest;
-import co.ecg.alpaca.toolkit.generated.datatypes.AccessDeviceMultipleContactEndpointModify;
-import co.ecg.alpaca.toolkit.generated.datatypes.Endpoint;
-import co.ecg.alpaca.toolkit.generated.datatypes.UnboundedPositiveInt;
-import co.ecg.alpaca.toolkit.generated.datatypes.UserServiceAuthorization;
-import co.ecg.alpaca.toolkit.generated.enums.UserService;
-import co.ecg.alpaca.toolkit.generated.services.UserAuthentication;
-import co.ecg.alpaca.toolkit.messaging.response.Response;
+import co.ecg.alpaca.toolkit.generated.BWSystem;
 import co.ecg.alpaca.toolkit.model.BroadWorksServer;
 import co.ecg.utilities.properties.P;
-import org.apache.commons.cli.*;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.supercsv.io.CsvListReader;
-import org.supercsv.io.ICsvListReader;
-import org.supercsv.prefs.CsvPreference;
-
-import java.io.FileReader;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * An example stand alone Alpaca Tool
@@ -47,7 +13,7 @@ import java.util.stream.Stream;
  */
 public class Example {
 
-    private static final Logger log = LogManager.getLogger(BulkLoader.class);
+    private static final Logger log = LogManager.getLogger(Example.class);
 
     /**
      * The Example entry point
@@ -64,13 +30,40 @@ public class Example {
                 System.exit(1);
             }
 
-            System.out.println();
+            StringBuilder information = new StringBuilder();
 
+            information.append(String.format("%1$-30s %2$s \n", "BroadWorks Address: ", bws.getServerAddress()));
+            information.append(String.format("%1$-30s %2$s \n", "Logged In User: ", bws.getUsername()));
+
+            information.append("\n");
+
+            BWSystem.SystemLicensingGetRequest licensingRequest = new BWSystem.SystemLicensingGetRequest(bws);
+            BWSystem.SystemLicensingGetResponse licensingResponse = licensingRequest.fire();
+
+            if (!licensingResponse.isErrorResponse()) {
+                information.append(String.format("%1$-30s %2$-55s \n", "", "Licensing").replaceAll(" ", "-"));
+                information.append(String.format("%1$-30s %2$s \n", "License Strictness: ", licensingResponse.getLicenseStrictness()));
+                information.append(String.format("%1$-30s %2$s \n", "Group User Limit: ", licensingResponse.getGroupUserlimit()));
+                information.append(String.format("%1$-30s %2$s \n", "Expiration Date: ", licensingResponse.getExpirationDate()));
+
+                String[] hostIdList = licensingResponse.getHostId();
+                for (String element : hostIdList) {
+                    information.append(String.format("%1$-30s %2$s \n", "Host ID: ", element));
+                }
+
+                String[] licenseList = licensingResponse.getLicenseName();
+                for (String element : licenseList) {
+                    information.append(String.format("%1$-30s %2$s \n", "License Name: ", element));
+                }
+
+                information.append(String.format("%1$-30s %2$s \n", "Number of Trunk Users: ", licensingResponse.getNumberOfTrunkUsers()));
+            }
+
+            System.out.println(information.toString());
             System.exit(0);
         } catch (Exception ex) {
-            String error = "Error while processing provisioning file - ";
-            log.fatal(error, ex);
-            System.out.println(error + ex.getMessage());
+            log.fatal(ex);
+            System.out.println(ex.getMessage());
             System.exit(1);
         }
     }
