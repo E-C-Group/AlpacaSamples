@@ -41,6 +41,25 @@ import java.util.stream.Stream;
 /**
  * A bulk provisioning and deprovisioning tool for BroadWorks.
  *
+ * This tool accepts a TSV input file with the following fields:
+ * enterpriseID,
+ * groupID,
+ * userID,
+ * domain,
+ * servicesToAssignCommaDelimited,
+ * extensionDigits,
+ * webPortalPassword,
+ * sipUserName,
+ * sipAuthenticationPassword,
+ * identityDeviceProfileType,
+ * identityDeviceProfileName,
+ * linePort
+ *
+ * The provisioned users have restrictions -
+ * - An extension but no assigned number.
+ * - A single Group level Access Device.
+ * - Authentication must be assigned.
+ *
  * @author Matthew Keathley on 2/23/17.
  */
 public class BulkLoader {

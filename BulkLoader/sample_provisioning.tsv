@@ -1,0 +1,3 @@
+sample_sp	sample_group	sample_user1	lab2.e-c-group.com	"Authentication,Shared Call Appearance"	1234	pnBhm$vzZDux1	user1_auth	pnBh-mvzZDuxb3	"Polycom VVX 500"	"Group Device 1"	sample_user1@lab2.e-c-group.com
+sample_sp	sample_group	sample_user2	lab2.e-c-group.com	Authentication	4321	pnBhm$vzZDux1	user2_auth	pnBh-mvzZDuxb3	"Polycom VVX 500"	"Group Device 2"	sample_user2@lab2.e-c-group.com
+sample_sp	sample_group2	sample_user3	lab2.e-c-group.com	Authentication	3241	pnBhm$vzZDux1	user3_auth	pnBh-mvzZDuxb3	"Polycom VVX 500"	"Group Device 3"	sample_user3@lab2.e-c-group.com
