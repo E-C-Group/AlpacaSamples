@@ -117,12 +117,25 @@ public class UCOneProvisioningTool {
             }
             out.println(PrintColor.GREEN, "\t" + PrintColorWriter.CHECK_MARK + " Successfully assigned Integrated IM&P.");
 
+            // Apply SCA Settings
+            out.println(PrintColor.BLUE, " * Applying SCA Settings.");
+            UserSharedCallAppearance.UserSharedCallAppearanceModifyRequest sharedCallAppearanceModifyRequest = new UserSharedCallAppearance.UserSharedCallAppearanceModifyRequest(user);
+            sharedCallAppearanceModifyRequest.setAlertAllAppearancesForClickToDialCalls(true);
+            sharedCallAppearanceModifyRequest.setAllowSCACallRetrieve(true);
+            sharedCallAppearanceModifyRequest.setMultipleCallArrangementIsActive(true);
+            sharedCallAppearanceModifyRequest.setEnableCallParkNotification(true);
+
+            DefaultResponse sharedCallAppearanceModifyResponse = sharedCallAppearanceModifyRequest.fire();
+            if(sharedCallAppearanceModifyResponse.isErrorResponse()) {
+                out.println(PrintColor.RED, "\t" + PrintColorWriter.ERROR_MARK + " An error occurred while applying SCA settings. \n" + sharedCallAppearanceModifyResponse.getSummaryText());
+            }
+            out.println(PrintColor.GREEN, "\t" + PrintColorWriter.CHECK_MARK + " Successfully applied SCA settings.");
+
+            // Assign Devices
             out.println(PrintColor.BLUE, " * Assigning Devices.");
-            // Setup Devices and SCAs
             deviceTypeToNameMap.keySet().forEach(device -> {
                 addDevice(deviceTypeToNameMap.get(device), device);
                 setupSCA(deviceTypeToNameMap.get(device));
-
             });
             out.println(PrintColor.GREEN, "\t" + PrintColorWriter.CHECK_MARK + " Successfully assigned Devices.");
 
