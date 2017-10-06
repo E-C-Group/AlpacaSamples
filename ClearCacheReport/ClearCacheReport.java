@@ -60,22 +60,6 @@ public class ClearCacheReport {
                 bws = BroadWorksServer.getBroadWorksServer(P.getProperties().getPrimaryBroadWorksServer());
             }
 
-            if (bws == null) {
-
-            }
-
-            if (args.length < 1) {
-                System.out.println("Please specify Enterprise or ServiceProvider ID.");
-                System.exit(1);
-            }
-
-            if (args.length < 2) {
-                System.out.println("Please specify BroadWorks Cluster nickname and Enterprise or ServiceProvider ID.");
-                System.exit(1);
-            }
-
-
-
             // Retrieve Service Provider
             ServiceProvider serviceProvider = ServiceProvider.getPopulatedServiceProvider(bws, cmd.getOptionValue("e"));
 
