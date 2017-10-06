@@ -27,7 +27,7 @@ public class ClearCacheReport {
             CommandLineParser parser = new DefaultParser();
 
             Options options = new Options();
-            options.addOption(Option.builder("-e")
+            options.addOption(Option.builder("e")
                     .desc("The Enterprise or Service Provider ID to generate the list of clear cache commands")
                     .longOpt("EnterpriseID")
                     .hasArg(true)
@@ -43,6 +43,13 @@ public class ClearCacheReport {
 
             CommandLine cmd = null;
 
+            try {
+                cmd = parser.parse(options, args);
+            } catch (Exception ex) {
+                new HelpFormatter().printHelp("ClearCacheReport", options);
+                System.exit(1);
+            }
+
             // Open the connection to BroadWorks
             // If Option c was provided with a valid nickname
             BroadWorksServer bws = null;
@@ -56,8 +63,22 @@ public class ClearCacheReport {
                         break;
                     }
                 }
+
+                // Confirm nickname matched a BroadWorks server in the configuration bws was loaded from the provided nickname
+                if (bws == null) {
+                    System.out.println(cmd.getOptionValue("c") + " does not match a server in the list of configured BroadWorks servers.");
+                    new HelpFormatter().printHelp("ClearCacheReport", options);
+                    System.exit(1);
+                }
             } else {
                 bws = BroadWorksServer.getBroadWorksServer(P.getProperties().getPrimaryBroadWorksServer());
+            }
+
+            // No BroadWorks server is listed in the configuration
+            if (bws == null) {
+                System.out.println("The Alpaca Configuration does not contain a BroadWorks Server.  Update Configuration and try again");
+                new HelpFormatter().printHelp("ClearCacheReport", options);
+                System.exit(1);
             }
 
             // Retrieve Service Provider
